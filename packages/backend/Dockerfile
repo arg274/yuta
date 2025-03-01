@@ -1,23 +1,26 @@
-# Use Node.js as the base image
-FROM node:20-alpine
+# Use Python 3.13 slim as the base image
+FROM python:3.13-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Install Poetry
+RUN pip install poetry==1.8.2
+
+# Configure Poetry to not create a virtual environment
+RUN poetry config virtualenvs.create false
+
+# Copy Poetry configuration files
+COPY pyproject.toml poetry.lock* ./
 
 # Install dependencies
-RUN npm ci
+RUN poetry install --no-dev --no-interaction --no-ansi
 
-# Copy the rest of the application code
+# Copy project files
 COPY . .
 
-# Build the SvelteKit app with adapter-static
-RUN npm run build
+# Expose the port the app runs on
+EXPOSE 8000
 
-# Expose the preview port (default is 4173)
-EXPOSE 4173
-
-# Start the preview server
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0"]
+# Start the FastAPI application with hot reload for development
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
