@@ -1,0 +1,22 @@
+services:
+    frontend:
+        build:
+            context: ./packages/frontend
+            dockerfile: Dockerfile
+        ports:
+            - '3000:3000'
+        depends_on:
+            - backend
+        environment:
+            - PUBLIC_API_URL=http://backend:8000
+        restart: unless-stopped
+
+    backend:
+        build:
+            context: ./packages/backend
+            dockerfile: Dockerfile
+        ports:
+            - '8000:8000'
+        environment:
+            - ENVIRONMENT=development
+        restart: unless-stopped

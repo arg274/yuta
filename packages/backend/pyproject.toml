@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "yuta-core"
+version = "0.1.0"
+description = ""
+authors = ["arg274 <4648027+arg274@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+fastapi = {extras = ["standard"], version = "^0.115.8"}
+pandas = "^2.2.3"
+geopandas = "^1.0.1"
+scipy = "^1.15.2"
+xgboost = "^2.1.4"
+scikit-learn = "^1.6.1"
+pydantic = "^2.10.6"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
