@@ -1,7 +1,6 @@
 import { writable } from 'svelte/store';
 import type { GeomorphData } from '$lib/types/GeomorphData';
 import type { GeomorphResponse } from '$lib/types/GeomorphResponse';
-import { PUBLIC_API_URL } from '$env/static/public';
 
 // Create the main store for geomorphological data
 export const geomorphData = writable<GeomorphData[]>([]);
@@ -45,13 +44,14 @@ export function processAndUpdateData(response: GeomorphResponse) {
 	}
 }
 
-// Function to handle file upload and analysis
+// Function to handle file upload and analysis - now using our server endpoint
 export async function uploadAndAnalyzeFile(file: File): Promise<GeomorphData[]> {
 	const formData = new FormData();
 	formData.append('file', file);
 
 	try {
-		const response = await fetch(`${PUBLIC_API_URL}/analyze/file`, {
+		// Call our server endpoint instead of the external API directly
+		const response = await fetch('/api/analyze', {
 			method: 'POST',
 			body: formData
 		});
@@ -70,7 +70,7 @@ export async function uploadAndAnalyzeFile(file: File): Promise<GeomorphData[]> 
 	}
 }
 
-// Function to reanalyze the current data
+// Function to reanalyze the current data - now using our server endpoint
 export async function reanalyzeData(): Promise<GeomorphData[]> {
 	let currentData: GeomorphData[] = [];
 
@@ -85,7 +85,8 @@ export async function reanalyzeData(): Promise<GeomorphData[]> {
 	}
 
 	try {
-		const response = await fetch(`${PUBLIC_API_URL}/analyze/json`, {
+		// Call our server endpoint instead of the external API directly
+		const response = await fetch('/api/reanalyze', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
