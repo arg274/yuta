@@ -4,11 +4,11 @@ services:
             context: ./packages/frontend
             dockerfile: Dockerfile
         ports:
-            - '3000:3000'
+            - '4173:4173'
         depends_on:
             - backend
-        environment:
-            - PUBLIC_API_URL=http://backend:8000
+        env_file:
+            - ./packages/frontend/.env
         restart: unless-stopped
 
     backend:
@@ -17,6 +17,6 @@ services:
             dockerfile: Dockerfile
         ports:
             - '8000:8000'
-        environment:
-            - ENVIRONMENT=development
+        env_file:
+            - ./packages/backend/.env
         restart: unless-stopped
