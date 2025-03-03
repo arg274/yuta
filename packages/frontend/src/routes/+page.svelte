@@ -13,8 +13,8 @@
 		Tag
 	} from 'carbon-components-svelte';
 	import type { DataTableHeader } from 'carbon-components-svelte/src/DataTable/DataTable.svelte';
-	import { DonutChart } from '@carbon/charts-svelte';
 	import Reset from 'carbon-icons-svelte/lib/Reset.svelte';
+	import Download from 'carbon-icons-svelte/lib/Download.svelte';
 	import {
 		geomorphData,
 		chartData,
@@ -23,22 +23,47 @@
 		resetToggles,
 		updateToggle
 	} from '$lib/store';
+	import { onMount, onDestroy } from 'svelte';
+	import { Chart, DoughnutController, ArcElement, Tooltip, Legend, Title } from 'chart.js';
+	import ChartDataLabels from 'chartjs-plugin-datalabels';
 
-	// Subscribe to the stores
+	// Register Chart.js components
+	Chart.register(DoughnutController, ArcElement, Tooltip, Legend, Title, ChartDataLabels);
+
+	// Declare variables before any functions use them
 	let tableRows: GeomorphData[] = [];
 	let chartDataValue: { group: string; value: number }[] = [];
+	let chart: Chart | null = null;
+	let chartCanvas: HTMLCanvasElement;
+	let pageSize = 20;
+	let page = 1;
+	let isLoading = false;
+	let isChartLoading = false;
+	let error: Error | null = null;
+	let fileUploaded = false;
+	let showErrorToast = false;
 
 	// Unsubscribe when component is destroyed
 	const unsubGeomorphData = geomorphData.subscribe((value) => {
 		tableRows = value;
 	});
 
+	// Define a separate update function that doesn't reference chart variable directly
+	function safeUpdateChart() {
+		if (typeof window !== 'undefined' && chart && chartDataValue.length > 0) {
+			updateChart();
+		}
+	}
+
 	const unsubChartData = chartData.subscribe((value) => {
 		chartDataValue = value;
+		// Using a separate function to avoid the direct reference to chart
+		if (typeof window !== 'undefined') {
+			setTimeout(safeUpdateChart, 0);
+		}
 	});
 
 	// Cleanup subscriptions on component destruction
-	import { onDestroy } from 'svelte';
 	onDestroy(() => {
 		unsubGeomorphData();
 		unsubChartData();
@@ -57,34 +82,139 @@
 		{ key: 'channel_type', value: 'Channel Type' }
 	];
 
-	let pageSize = 20;
-	let page = 1;
-	let isLoading = false;
-	let isChartLoading = false;
-	let error: Error | null = null;
-	let fileUploaded = false;
-	let showErrorToast = false;
+	// Variables already declared above
 
-	let chartOptions = {
-		title: 'Channel Type Distribution',
-		resizable: true,
-		donut: {
-			alignment: 'center'
-		},
-		height: '400px',
-		theme: 'g100', // Carbon dark theme
-		color: {
-			scale: {
-				Fluvial: '#0072c3', // cyan (Carbon cyan-60)
-				Transitional: '#da1e28', // red (Carbon red-60)
-				Colluvial: '#24a148' // green (Carbon green-60)
+	// Convert chartDataValue to Chart.js format and update chart
+	function updateChart() {
+		// Check for browser environment first
+		if (typeof window === 'undefined' || !chart || !chartDataValue.length) return;
+
+		const labels = chartDataValue.map((item) => item.group);
+		const data = chartDataValue.map((item) => item.value);
+		const backgroundColor = labels.map((label) => {
+			if (label === 'Fluvial') return '#0072c3';
+			if (label === 'Transitional') return '#da1e28';
+			if (label === 'Colluvial') return '#24a148';
+			return '#888888'; // Default color
+		});
+
+		chart.data.labels = labels;
+		chart.data.datasets[0].data = data;
+		chart.data.datasets[0].backgroundColor = backgroundColor;
+		chart.update();
+	}
+
+	// Initialize Chart.js when canvas is available
+	function initChart() {
+		// Check for browser environment first
+		if (typeof window === 'undefined' || !chartCanvas || !chartDataValue.length) return;
+
+		const labels = chartDataValue.map((item) => item.group);
+		const data = chartDataValue.map((item) => item.value);
+		const backgroundColor = labels.map((label) => {
+			if (label === 'Fluvial') return '#0072c3';
+			if (label === 'Transitional') return '#da1e28';
+			if (label === 'Colluvial') return '#24a148';
+			return '#888888'; // Default color
+		});
+
+		chart = new Chart(chartCanvas, {
+			type: 'doughnut',
+			data: {
+				labels: labels,
+				datasets: [
+					{
+						data: data,
+						backgroundColor: backgroundColor,
+						borderWidth: 1
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				animation: {
+					duration: 2000 // Longer animation for better export quality
+				},
+				plugins: {
+					datalabels: {
+						formatter: (value: number, ctx) => {
+							// Calculate percentage - TypeScript safe implementation
+							const dataset = ctx.chart.data.datasets[0];
+							// Type assertion to ensure we're working with an array of numbers
+							const dataArray = dataset.data as number[];
+							const dataSum = dataArray.reduce((acc: number, current: number) => acc + current, 0);
+							const percentage = ((value * 100) / dataSum).toFixed(1) + '%';
+							return percentage;
+						},
+						color: '#ffffff',
+						font: {
+							weight: 'bold',
+							size: 14
+						},
+						anchor: 'center',
+						align: 'center',
+						offset: 0
+					},
+					title: {
+						display: true,
+						text: 'Channel Type Distribution',
+						color: '#ffffff',
+						font: {
+							size: 16,
+							weight: 'bold'
+						}
+					},
+					legend: {
+						position: 'bottom',
+						labels: {
+							color: '#ffffff',
+							font: {
+								size: 14
+							}
+						}
+					},
+					tooltip: {
+						enabled: true,
+						backgroundColor: 'rgba(0, 0, 0, 0.7)',
+						titleFont: {
+							size: 14,
+							weight: 'bold'
+						},
+						bodyFont: {
+							size: 13
+						},
+						padding: 10,
+						displayColors: true,
+						callbacks: {
+							label: function (context) {
+								const label = context.label || '';
+								const value = (context.raw as number) || 0;
+
+								// Type-safe implementation
+								const dataset = context.chart.data.datasets[0];
+								const dataArray = dataset.data as number[];
+								const dataSum = dataArray.reduce(
+									(acc: number, current: number) => acc + current,
+									0
+								);
+
+								const percentage = ((value * 100) / dataSum).toFixed(1);
+								return `${label}: ${value} (${percentage}%)`;
+							}
+						}
+					}
+				}
 			}
-		},
-		data: {
-			groupMapsTo: 'group', // Ensure this matches your data structure
-			loading: isChartLoading // Use built-in loading state
+		});
+	}
+
+	onMount(() => {
+		// onMount only runs in the browser, but adding an extra check doesn't hurt
+		if (typeof window !== 'undefined' && chartDataValue.length > 0 && chartCanvas) {
+			initChart();
 		}
-	};
+	});
 
 	function handleFileUpload(files: readonly File[]) {
 		if (!files || files.length === 0) return;
@@ -97,6 +227,16 @@
 			.then(() => {
 				isLoading = false;
 				fileUploaded = true;
+				// Initialize chart after data is loaded (browser-only)
+				if (typeof window !== 'undefined') {
+					setTimeout(() => {
+						if (chartCanvas && !chart && chartDataValue.length > 0) {
+							initChart();
+						} else if (chart && chartDataValue.length > 0) {
+							updateChart();
+						}
+					}, 0);
+				}
 			})
 			.catch((err) => {
 				isLoading = false;
@@ -115,6 +255,10 @@
 		reanalyzeData()
 			.then(() => {
 				isChartLoading = false;
+				// Update chart after reanalysis (browser-only)
+				if (typeof window !== 'undefined' && chart && chartDataValue.length > 0) {
+					updateChart();
+				}
 			})
 			.catch((err) => {
 				isChartLoading = false;
@@ -141,6 +285,105 @@
 		showErrorToast = false;
 		// Reset the stores
 		resetToggles();
+		// Destroy chart instance
+		if (chart) {
+			chart.destroy();
+			chart = null;
+		}
+	}
+
+	function downloadChartAsPNG() {
+		if (!chart || typeof window === 'undefined') return;
+
+		const scaleFactor = 3; // Increase for even sharper images
+		const originalCanvas = chart.canvas;
+
+		// Create a temporary canvas
+		const tempCanvas = document.createElement('canvas');
+		tempCanvas.width = originalCanvas.width * scaleFactor;
+		tempCanvas.height = originalCanvas.height * scaleFactor;
+
+		// Append tempCanvas to body to ensure proper rendering
+		tempCanvas.style.position = 'absolute';
+		tempCanvas.style.left = '-9999px';
+		document.body.appendChild(tempCanvas);
+
+		// Copy current chart data and configuration
+		const chartData = JSON.parse(JSON.stringify(chart.data));
+
+		// Create a new temporary chart with the same data but higher resolution
+		const tempChart = new Chart(tempCanvas, {
+			type: 'doughnut',
+			data: chartData,
+			options: {
+				animation: false,
+				responsive: false,
+				maintainAspectRatio: false,
+				devicePixelRatio: scaleFactor,
+				plugins: {
+					datalabels: {
+						formatter: (value: number, ctx) => {
+							// Type-safe implementation
+							const dataset = ctx.chart.data.datasets[0];
+							const dataArray = dataset.data as number[];
+							const dataSum = dataArray.reduce((acc: number, current: number) => acc + current, 0);
+
+							const percentage = ((value * 100) / dataSum).toFixed(1) + '%';
+							return percentage;
+						},
+						color: '#ffffff', // Black labels for export
+						font: {
+							weight: 'bold',
+							size: 14 * scaleFactor
+						},
+						anchor: 'center',
+						align: 'center',
+						offset: 0
+					},
+					title: {
+						display: true,
+						text: 'Channel Type Distribution',
+						color: '#000000', // Use black text for export
+						font: {
+							size: 16 * scaleFactor,
+							weight: 'bold'
+						}
+					},
+					legend: {
+						position: 'bottom',
+						labels: {
+							color: '#000000', // Use black text for export
+							font: {
+								size: 14 * scaleFactor
+							}
+						}
+					},
+					tooltip: {
+						enabled: false // Disable tooltip for export
+					}
+				}
+			}
+		});
+
+		// Wait for chart to render properly (increase timeout if needed)
+		setTimeout(() => {
+			try {
+				// Download the PNG
+				const dataURL = tempCanvas.toDataURL('image/png', 1.0);
+				const link = document.createElement('a');
+				link.download = 'channel-type-distribution.png';
+				link.href = dataURL;
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+			} catch (e) {
+				console.error('Error exporting chart:', e);
+			} finally {
+				// Clean up
+				tempChart.destroy();
+				document.body.removeChild(tempCanvas);
+			}
+		}, 500); // Adjust timeout as needed
 	}
 </script>
 
@@ -176,7 +419,7 @@
 						on:change={(e) => {
 							handleFileUpload(e.detail);
 						}}
-						class="center flex  w-full justify-center"
+						class="center flex w-full justify-center"
 					/>
 				</div>
 			{/if}
@@ -259,8 +502,18 @@
 
 			<div class="!mb-12">
 				{#if chartDataValue.length > 0}
-					<div class="h-96 w-full rounded-lg border border-gray-200 p-4">
-						<DonutChart data={chartDataValue} options={chartOptions} />
+					<div class="w-full rounded-lg border border-gray-200 p-4">
+						<div class="mb-2 flex justify-end space-x-2">
+							<Button
+								kind="secondary"
+								icon={Download}
+								iconDescription="Download as PNG"
+								on:click={downloadChartAsPNG}
+							/>
+						</div>
+						<div class="h-96">
+							<canvas bind:this={chartCanvas}></canvas>
+						</div>
 					</div>
 				{:else}
 					<div class="rounded-lg bg-yellow-50 p-4 text-yellow-700">

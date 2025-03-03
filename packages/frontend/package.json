@@ -14,7 +14,6 @@
 		"lint": "prettier --check . && eslint ."
 	},
 	"devDependencies": {
-		"@carbon/charts-svelte": "^1.22.18",
 		"@eslint/compat": "^1.2.5",
 		"@eslint/js": "^9.18.0",
 		"@sveltejs/adapter-static": "^3.0.8",
@@ -22,6 +21,8 @@
 		"@sveltejs/vite-plugin-svelte": "^5.0.0",
 		"@tailwindcss/vite": "^4.0.0",
 		"carbon-icons-svelte": "^13.3.0",
+		"chart.js": "^4.4.8",
+		"chartjs-plugin-datalabels": "^2.2.0",
 		"eslint": "^9.18.0",
 		"eslint-config-prettier": "^10.0.1",
 		"eslint-plugin-svelte": "^2.46.1",
