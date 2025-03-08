@@ -365,7 +365,7 @@
 						color: '#ffffff',
 						font: {
 							weight: 'bold',
-							size: 64 * fontScaleFactor
+							size: 32 * fontScaleFactor
 						},
 						anchor: 'center',
 						align: 'center',
