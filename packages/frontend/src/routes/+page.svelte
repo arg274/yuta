@@ -112,9 +112,9 @@
 		const labels = chartDataValue.map((item) => item.group);
 		const data = chartDataValue.map((item) => item.value);
 		const backgroundColor = labels.map((label) => {
-			if (label === 'Fluvial') return '#0072c3';
-			if (label === 'Transitional') return '#da1e28';
-			if (label === 'Colluvial') return '#24a148';
+			if (label === 'Fluvial') return '#abcc43';
+			if (label === 'Transitional') return '#e85526';
+			if (label === 'Colluvial') return '#443892';
 			return '#888888'; // Default color
 		});
 
@@ -133,9 +133,7 @@
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
-				animation: {
-					duration: 2000 // Longer animation for better export quality
-				},
+				animation: false,
 				plugins: {
 					datalabels: {
 						formatter: (value: number, ctx) => {
@@ -150,20 +148,30 @@
 						color: '#ffffff',
 						font: {
 							weight: 'bold',
-							size: 14
+							size: 32
 						},
+						// Keep labels centered in segments
 						anchor: 'center',
 						align: 'center',
-						offset: 0
-					},
-					title: {
+						// Rotate text to follow the curve of each segment with 90 degree correction
+						rotation: (ctx) => {
+							const meta = ctx.chart.getDatasetMeta(0);
+							// Use proper type assertion for ArcElement
+							const arc = meta.data[ctx.dataIndex] as ArcElement;
+							const startAngle = arc.startAngle;
+							const endAngle = arc.endAngle;
+
+							// Calculate the middle of the segment in radians
+							const midAngle = startAngle + (endAngle - startAngle) / 2;
+
+							// Convert radians to degrees with 90 degree offset to correct orientation
+							return (midAngle * 180) / Math.PI + 90;
+						},
+						offset: 0,
+						// Ensure labels render immediately by disabling animations for the labels
 						display: true,
-						text: 'Channel Type Distribution',
-						color: '#ffffff',
-						font: {
-							size: 16,
-							weight: 'bold'
-						}
+						clamp: false,
+						clip: false
 					},
 					legend: {
 						position: 'bottom',
@@ -207,6 +215,11 @@
 				}
 			}
 		});
+
+		// Force immediate update after creation to ensure labels render correctly
+		setTimeout(() => {
+			chart?.update();
+		}, 100);
 	}
 
 	onMount(() => {
@@ -295,15 +308,29 @@
 	function downloadChartAsPNG() {
 		if (!chart || typeof window === 'undefined') return;
 
-		const scaleFactor = 3; // Increase for even sharper images
+		// Get the browser's pixel ratio
+		const browserPixelRatio = window.devicePixelRatio;
+
+		// Adapt scale factor based on browser zoom
+		let adaptiveScaleFactor;
+		if (browserPixelRatio > 1.25) {
+			adaptiveScaleFactor = 3 / browserPixelRatio;
+		} else {
+			adaptiveScaleFactor = 3;
+		}
+
 		const originalCanvas = chart.canvas;
 
-		// Create a temporary canvas
+		// Create a temporary canvas with controlled dimensions
 		const tempCanvas = document.createElement('canvas');
-		tempCanvas.width = originalCanvas.width * scaleFactor;
-		tempCanvas.height = originalCanvas.height * scaleFactor;
+		const maxDimension = 16384;
 
-		// Append tempCanvas to body to ensure proper rendering
+		const scaledWidth = Math.min(originalCanvas.width * adaptiveScaleFactor, maxDimension);
+		const scaledHeight = Math.min(originalCanvas.height * adaptiveScaleFactor, maxDimension);
+
+		tempCanvas.width = scaledWidth;
+		tempCanvas.height = scaledHeight;
+
 		tempCanvas.style.position = 'absolute';
 		tempCanvas.style.left = '-9999px';
 		document.body.appendChild(tempCanvas);
@@ -311,7 +338,9 @@
 		// Copy current chart data and configuration
 		const chartData = JSON.parse(JSON.stringify(chart.data));
 
-		// Create a new temporary chart with the same data but higher resolution
+		const fontScaleFactor = adaptiveScaleFactor;
+
+		// Create a new temporary chart with fixed TypeScript issues
 		const tempChart = new Chart(tempCanvas, {
 			type: 'doughnut',
 			data: chartData,
@@ -319,71 +348,95 @@
 				animation: false,
 				responsive: false,
 				maintainAspectRatio: false,
-				devicePixelRatio: scaleFactor,
+				devicePixelRatio: browserPixelRatio,
 				plugins: {
 					datalabels: {
 						formatter: (value: number, ctx) => {
 							// Type-safe implementation
 							const dataset = ctx.chart.data.datasets[0];
+							// Ensure we're working with numbers only
 							const dataArray = dataset.data as number[];
+							// Safely reduce with proper type handling
 							const dataSum = dataArray.reduce((acc: number, current: number) => acc + current, 0);
 
 							const percentage = ((value * 100) / dataSum).toFixed(1) + '%';
 							return percentage;
 						},
-						color: '#ffffff', // Black labels for export
+						color: '#ffffff',
 						font: {
 							weight: 'bold',
-							size: 14 * scaleFactor
+							size: 64 * fontScaleFactor
 						},
 						anchor: 'center',
 						align: 'center',
-						offset: 0
-					},
-					title: {
-						display: true,
-						text: 'Channel Type Distribution',
-						color: '#000000', // Use black text for export
-						font: {
-							size: 16 * scaleFactor,
-							weight: 'bold'
-						}
+						// Add rotation to match main chart
+						rotation: (ctx) => {
+							const meta = ctx.chart.getDatasetMeta(0);
+							// Use proper type assertion for ArcElement
+							const arc = meta.data[ctx.dataIndex] as ArcElement;
+							const startAngle = arc.startAngle;
+							const endAngle = arc.endAngle;
+
+							// Calculate the middle of the segment in radians
+							const midAngle = startAngle + (endAngle - startAngle) / 2;
+
+							// Convert radians to degrees with 90 degree offset to correct orientation
+							return (midAngle * 180) / Math.PI + 90;
+						},
+						offset: 0,
+						display: true
 					},
 					legend: {
 						position: 'bottom',
 						labels: {
-							color: '#000000', // Use black text for export
+							color: '#000000',
 							font: {
-								size: 14 * scaleFactor
+								size: 14 * fontScaleFactor
 							}
 						}
 					},
 					tooltip: {
-						enabled: false // Disable tooltip for export
+						enabled: false
 					}
 				}
 			}
 		});
 
-		// Wait for chart to render properly (increase timeout if needed)
+		// Add error handling and logging for debugging
+		tempCanvas.onerror = (e) => {
+			console.error('Canvas error:', e);
+		};
+
+		// Wait for chart to render properly
 		setTimeout(() => {
 			try {
-				// Download the PNG
+				// Download the PNG with error handling
 				const dataURL = tempCanvas.toDataURL('image/png', 1.0);
+
+				// Check if dataURL is valid
+				if (dataURL.length <= 22) {
+					console.error('Generated dataURL is empty');
+					alert('Error generating chart image. Try with a lower zoom level.');
+					return;
+				}
+
 				const link = document.createElement('a');
 				link.download = 'channel-type-distribution.png';
 				link.href = dataURL;
 				document.body.appendChild(link);
 				link.click();
 				document.body.removeChild(link);
-			} catch (e) {
+			} catch (e: unknown) {
+				// Properly typed error handling
 				console.error('Error exporting chart:', e);
+				const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+				alert('Failed to export chart: ' + errorMessage);
 			} finally {
 				// Clean up
 				tempChart.destroy();
 				document.body.removeChild(tempCanvas);
 			}
-		}, 500); // Adjust timeout as needed
+		}, 500);
 	}
 </script>
 
