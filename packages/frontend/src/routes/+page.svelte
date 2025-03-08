@@ -92,9 +92,9 @@
 		const labels = chartDataValue.map((item) => item.group);
 		const data = chartDataValue.map((item) => item.value);
 		const backgroundColor = labels.map((label) => {
-			if (label === 'Fluvial') return '#0072c3';
-			if (label === 'Transitional') return '#da1e28';
-			if (label === 'Colluvial') return '#24a148';
+			if (label === 'Fluvial') return '##443892';
+			if (label === 'Transitional') return '#e85526';
+			if (label === 'Colluvial') return '#abcc43';
 			return '#888888'; // Default color
 		});
 
@@ -112,9 +112,9 @@
 		const labels = chartDataValue.map((item) => item.group);
 		const data = chartDataValue.map((item) => item.value);
 		const backgroundColor = labels.map((label) => {
-			if (label === 'Fluvial') return '#abcc43';
+			if (label === 'Fluvial') return '#443892';
 			if (label === 'Transitional') return '#e85526';
-			if (label === 'Colluvial') return '#443892';
+			if (label === 'Colluvial') return '#abcc43';
 			return '#888888'; // Default color
 		});
 
